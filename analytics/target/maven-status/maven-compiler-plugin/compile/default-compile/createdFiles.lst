@@ -1,0 +1,7 @@
+com\trading\analytics\VolatilityEngine.class
+com\trading\analytics\AnalyticsApplication.class
+com\trading\analytics\VWAPCalculator$TradeEvent.class
+com\trading\analytics\BellmanFordService.class
+com\trading\analytics\SupportResistanceDetector.class
+com\trading\analytics\PortfolioOptimizer.class
+com\trading\analytics\VWAPCalculator.class

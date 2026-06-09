@@ -1,0 +1,5 @@
+com\trading\push\MarketDataPushService.class
+com\trading\push\RedisConfig.class
+com\trading\push\WebSocketHandler.class
+com\trading\push\PushApplication.class
+com\trading\push\WebSocketConfig.class

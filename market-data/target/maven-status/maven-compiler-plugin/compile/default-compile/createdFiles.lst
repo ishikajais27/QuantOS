@@ -1,0 +1,6 @@
+marketdata\MarketDataApplication.class
+marketdata\FeedNormalizer.class
+marketdata\MarketEvent.class
+marketdata\FIXParser$TrieNode.class
+marketdata\FIXParser.class
+marketdata\MarketDataService.class

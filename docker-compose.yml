@@ -1,0 +1,81 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: trading
+      POSTGRES_USER: trading_user
+      POSTGRES_PASSWORD: trading_pass
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+
+  engine:
+    build: ./engine
+    ports:
+      - '8081:8081'
+    depends_on: [postgres, redis]
+
+  market-data:
+    build: ./market-data
+    ports:
+      - '8082:8082'
+    depends_on: [redis]
+
+  analytics:
+    build: ./analytics
+    ports:
+      - '8083:8083'
+    depends_on: [postgres, redis]
+
+  api:
+    build: ./api
+    ports:
+      - '8080:8080'
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/trading
+      SPRING_DATASOURCE_USERNAME: trading_user
+      SPRING_DATASOURCE_PASSWORD: trading_pass
+      SPRING_DATA_REDIS_HOST: redis
+    depends_on: [postgres, redis, engine]
+
+  push:
+    build: ./push
+    ports:
+      - '8084:8084'
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+    depends_on: [redis]
+
+  strategy:
+    build: ./strategy
+    ports:
+      - '8085:8085'
+    depends_on: [api]
+
+  web:
+    build: ./web
+    ports:
+      - '3000:3000'
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8080
+      DATABASE_URL: postgresql://trading_user:trading_pass@postgres:5432/trading
+    depends_on: [api]
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - '80:80'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on: [web, api, push]
+
+volumes:
+  pgdata:

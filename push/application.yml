@@ -1,0 +1,9 @@
+server:
+  port: 8084
+spring:
+  application:
+    name: push-server
+  data:
+    redis:
+      host: localhost
+      port: 6379

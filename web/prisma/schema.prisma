@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  role         String     @default("TRADER")
+  balance      Float      @default(0)
+  orders       Order[]
+  positions    Position[]
+  createdAt    DateTime   @default(now())
+}
+
+model Order {
+  id           String      @id @default(uuid())
+  accountId    String
+  account      Account     @relation(fields: [accountId], references: [id])
+  instrumentId String
+  type         String      // BID or ASK
+  price        Float
+  quantity     BigInt
+  status       String      @default("PENDING")
+  createdAt    DateTime    @default(now())
+}
+
+model Trade {
+  id             String   @id @default(uuid())
+  instrumentId   String
+  buyAccountId   String
+  sellAccountId  String
+  buyOrderId     String
+  sellOrderId    String
+  price          Decimal  @db.Decimal(20, 8)
+  quantity       BigInt
+  tradedAt       DateTime @default(now())
+
+  @@index([instrumentId, tradedAt(sort: Desc)])
+}
+
+model Position {
+  id             String  @id @default(uuid())
+  accountId      String
+  account        Account @relation(fields: [accountId], references: [id])
+  instrumentId   String
+  quantity       BigInt
+  averagePrice   Float
+  unrealizedPnl  Float   @default(0)
+
+  @@unique([accountId, instrumentId])
+}
+
+model Instrument {
+  id       String @id
+  name     String
+  exchange String
+  type     String
+  tickSize Float
+  lotSize  BigInt
+}

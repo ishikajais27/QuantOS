@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bid-color: #22c55e;
+  --ask-color: #ef4444;
+  --neutral: #6b7280;
+}
+
+body {
+  background: #030712;
+}
+
+.bid {
+  color: var(--bid-color);
+}
+.ask {
+  color: var(--ask-color);
+}
+.card {
+  @apply bg-gray-900 border border-gray-800 rounded-lg p-4;
+}
