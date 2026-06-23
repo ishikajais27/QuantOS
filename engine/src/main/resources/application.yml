@@ -3,3 +3,6 @@ server:
 spring:
   application:
     name: trading-engine
+logging:
+  level:
+    com.trading.engine: INFO

@@ -1,8 +1,0 @@
-server:
-  port: 8082
-spring:
-  application:
-    name: market-data
-exchanges:
-  zerodha-ws: wss://ws.kite.trade
-  binance-ws: wss://stream.binance.com:9443/ws

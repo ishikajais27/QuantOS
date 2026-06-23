@@ -4,12 +4,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
          https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
   <parent>
     <groupId>com.trading</groupId>
     <artifactId>trading-platform</artifactId>
     <version>1.0.0</version>
   </parent>
+
   <artifactId>market-data</artifactId>
+
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -17,27 +20,23 @@
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-websocket</artifactId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
     </dependency>
   </dependencies>
-<build>
-  <sourceDirectory>src/main/marketdata</sourceDirectory>
-  <resources>
-    <resource>
-      <directory>src/main/marketdata</directory>
-      <includes>
-        <include>application.yml</include>
-      </includes>
-    </resource>
-  </resources>
-  <plugins>
-    <plugin>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-maven-plugin</artifactId>
-      <configuration>
-        <mainClass>marketdata.MarketDataApplication</mainClass>
-      </configuration>
-    </plugin>
-  </plugins>
-</build>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>com.trading.marketdata.MarketDataApplication</mainClass>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

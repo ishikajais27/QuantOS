@@ -1,0 +1,25 @@
+package com.trading.engine;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class Order {
+    private String id;
+    private String type;       // BID or ASK
+    private double price;
+    private long   quantity;
+    private long   timestamp;
+
+    public Order() {}
+
+    public String getId()               { return id; }
+    public void   setId(String id)      { this.id = id; }
+    public String getType()             { return type; }
+    public void   setType(String type)  { this.type = type; }
+    public double getPrice()            { return price; }
+    public void   setPrice(double p)    { this.price = p; }
+    public long   getQuantity()         { return quantity; }
+    public void   setQuantity(long q)   { this.quantity = q; }
+    public long   getTimestamp()        { return timestamp; }
+    public void   setTimestamp(long ts) { this.timestamp = ts; }
+}
