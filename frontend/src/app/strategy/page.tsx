@@ -1,16 +1,50 @@
+// frontend/app/strategy/page.tsx
 'use client'
 import { useState } from 'react'
 import { api } from '@/lib/api-client'
+import HelpPanel from '@/components/HelpPanel'
+import { RequireAuth, useUser } from '@/context/UserContext'
 
 type StrategyType = 'TWAP' | 'VWAP'
 
-export default function StrategyPage() {
+const STRATEGY_HELP = {
+  title: 'Strategy Builder — How it works',
+  sections: [
+    {
+      label: 'Why TWAP?',
+      text: 'Time-Weighted Average Price splits your total quantity into N equal slices and executes one per time interval. Ideal for liquid markets — it hides your total size by spreading orders over time, minimising market impact.',
+    },
+    {
+      label: 'Why VWAP?',
+      text: "Volume-Weighted Average Price adjusts slice sizes based on historical volume distribution. Heavier trading periods get larger slices. Benchmarks your execution against the day's average price — standard for institutional reporting.",
+    },
+    {
+      label: 'Market Impact',
+      text: 'Placing a 10,000-lot order in one shot moves the market against you — sellers raise their asks as they see a large buyer. Splitting into 20 × 500-lot orders lets the market absorb each without spiking.',
+    },
+    {
+      label: 'The Backend',
+      text: "Your strategy request goes to the Strategy Service (port 8085), which stubs the execution. In a production build, it would call the Matching Engine via the API Gateway and route to the cheapest exchange using Dijkstra's shortest-path algorithm.",
+    },
+  ],
+}
+
+function StrategyContent() {
+  const { user } = useUser()
   const [instrument, setInstrument] = useState('NIFTY-FUT')
   const [quantity, setQuantity] = useState(1000)
   const [duration, setDuration] = useState(3600000)
   const [slices, setSlices] = useState(10)
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState<StrategyType | null>(null)
+
+  // Institutional traders get higher default quantities
+  const defaultQty =
+    user?.role === 'institutional'
+      ? 10000
+      : user?.role === 'quant'
+        ? 2000
+        : 1000
 
   const execute = async (type: StrategyType) => {
     setLoading(type)
@@ -34,15 +68,21 @@ export default function StrategyPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">Strategy Builder</h2>
-        <p className="text-gray-500 text-xs mt-1">
-          Configure and launch TWAP / VWAP execution strategies
-        </p>
+      <div className="flex justify-between items-center flex-wrap gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Strategy Builder</h2>
+          <p className="text-gray-500 text-xs mt-1">
+            Configure and launch TWAP / VWAP execution strategies
+          </p>
+        </div>
+        <HelpPanel
+          title={STRATEGY_HELP.title}
+          sections={STRATEGY_HELP.sections}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card space-y-4">
+        <div className="card space-y-4 border border-gray-800">
           <div className="text-gray-400 text-xs uppercase tracking-wider">
             Parameters
           </div>
@@ -141,7 +181,7 @@ export default function StrategyPage() {
           )}
         </div>
 
-        <div className="card space-y-4">
+        <div className="card space-y-4 border border-gray-800">
           <div className="text-gray-400 text-xs uppercase tracking-wider">
             Strategy Info
           </div>
@@ -181,5 +221,13 @@ export default function StrategyPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function StrategyPage() {
+  return (
+    <RequireAuth>
+      <StrategyContent />
+    </RequireAuth>
   )
 }

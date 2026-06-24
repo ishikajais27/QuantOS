@@ -1,9 +1,12 @@
+// frontend/app/orderbook/page.tsx
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import OrderBookTable from '@/components/OrderBookTable'
 import DepthChart from '@/components/DepthChart'
+import HelpPanel from '@/components/HelpPanel'
 import { tradingWS } from '@/lib/websocket'
 import { api } from '@/lib/api-client'
+import { RequireAuth, useUser } from '@/context/UserContext'
 
 interface Level {
   price: number
@@ -12,7 +15,30 @@ interface Level {
 
 const INSTRUMENTS = ['NIFTY-FUT', 'BTCUSDT']
 
-export default function OrderBookPage() {
+const ORDERBOOK_HELP = {
+  title: 'Order Book — How it works',
+  sections: [
+    {
+      label: 'Bids vs Asks',
+      text: 'Green rows are bids (buyers), red rows are asks (sellers). Prices are sorted so the best bid (highest buyer) and best ask (lowest seller) sit closest to the spread.',
+    },
+    {
+      label: 'The Spread',
+      text: 'The spread is the gap between the best bid and best ask. A tight spread means a liquid market — you can trade without much price slippage.',
+    },
+    {
+      label: 'Placing an Order',
+      text: 'Select BID or ASK, enter a price and quantity, and click Place. Your order goes to the Java matching engine running on port 8081, which uses a priority queue heap to match it instantly.',
+    },
+    {
+      label: 'Live Updates',
+      text: 'Data arrives via STOMP WebSocket from the Push Server (port 8084), which subscribes to Redis Pub/Sub channels published by the Market Data service (port 8082).',
+    },
+  ],
+}
+
+function OrderBookContent() {
+  const { user } = useUser()
   const [bids, setBids] = useState<Level[]>([])
   const [asks, setAsks] = useState<Level[]>([])
   const [spread, setSpread] = useState<number>(0)
@@ -61,7 +87,7 @@ export default function OrderBookPage() {
   const placeOrder = async () => {
     try {
       await api.placeOrder({
-        accountId: 'demo-account',
+        accountId: user?.id ?? 'demo-account',
         instrumentId: instrument,
         type: orderForm.type,
         price: parseFloat(orderForm.price),
@@ -77,7 +103,7 @@ export default function OrderBookPage() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center flex-wrap gap-3">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <h2 className="text-xl font-bold">Order Book</h2>
           <div className="flex gap-2">
             {INSTRUMENTS.map((i) => (
@@ -108,6 +134,10 @@ export default function OrderBookPage() {
           >
             {connected ? '● LIVE' : '○ CONNECTING'}
           </span>
+          <HelpPanel
+            title={ORDERBOOK_HELP.title}
+            sections={ORDERBOOK_HELP.sections}
+          />
         </div>
       </div>
 
@@ -164,5 +194,13 @@ export default function OrderBookPage() {
         {orderMsg && <p className="text-green-400 text-xs mt-2">{orderMsg}</p>}
       </div>
     </div>
+  )
+}
+
+export default function OrderBookPage() {
+  return (
+    <RequireAuth>
+      <OrderBookContent />
+    </RequireAuth>
   )
 }

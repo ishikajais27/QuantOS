@@ -1,6 +1,9 @@
+// frontend/app/arbitrage/page.tsx
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
+import HelpPanel from '@/components/HelpPanel'
+import { RequireAuth } from '@/context/UserContext'
 
 interface Opportunity {
   cycle: string[]
@@ -8,7 +11,29 @@ interface Opportunity {
   detectedAt?: number
 }
 
-export default function ArbitragePage() {
+const ARBITRAGE_HELP = {
+  title: 'Arbitrage — How it works',
+  sections: [
+    {
+      label: 'Bellman-Ford Algorithm',
+      text: 'The analytics service builds a directed graph where nodes are currencies/assets and edge weights are -log(exchange_rate). Bellman-Ford relaxes all edges V-1 times, then checks if another relaxation is possible. If yes, a negative cycle exists.',
+    },
+    {
+      label: 'What a Negative Cycle Means',
+      text: "USD→EUR→GBP→USD with a negative cycle means: convert $1 → €0.92 → £0.79 → $1.003. You get back more than you started with — that's risk-free profit (in theory).",
+    },
+    {
+      label: 'Profit in Basis Points',
+      text: '1 basis point = 0.01%. A 15 bps opportunity means a 0.15% gain per cycle. At institutional scale, this is significant. The analytics service runs this check every 10 seconds.',
+    },
+    {
+      label: 'Why Opportunities Vanish',
+      text: "Real arbitrage lasts milliseconds. Other algorithms — including competitors' — close the mispricing the moment they detect it. The scanner alerts you; execution speed determines profit.",
+    },
+  ],
+}
+
+function ArbitrageContent() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [scanning, setScanning] = useState(false)
@@ -46,10 +71,15 @@ export default function ArbitragePage() {
             <span className="text-yellow-400 animate-pulse">● Scanning...</span>
           )}
           {lastUpdated && <span>Last: {lastUpdated.toLocaleTimeString()}</span>}
+          <HelpPanel
+            title={ARBITRAGE_HELP.title}
+            sections={ARBITRAGE_HELP.sections}
+          />
         </div>
       </div>
 
-      <div className="card mb-4">
+      {/* Algorithm explainer */}
+      <div className="card mb-4 border border-gray-800">
         <div className="text-gray-400 text-xs uppercase tracking-wider mb-3">
           Algorithm
         </div>
@@ -68,7 +98,7 @@ export default function ArbitragePage() {
       </div>
 
       {opportunities.length === 0 ? (
-        <div className="card text-gray-500 text-center py-8">
+        <div className="card border border-gray-800 text-gray-500 text-center py-8">
           No arbitrage opportunities detected in the current market snapshot
         </div>
       ) : (
@@ -107,5 +137,13 @@ export default function ArbitragePage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function ArbitragePage() {
+  return (
+    <RequireAuth>
+      <ArbitrageContent />
+    </RequireAuth>
   )
 }
