@@ -10,17 +10,37 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    @Override
-    public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // In-memory broker for topics — replace with /rabbitmq in prod
-        registry.enableSimpleBroker("/topic");
-        registry.setApplicationDestinationPrefixes("/app");
-    }
-
+    /**
+     * Registers the /ws endpoint with SockJS fallback.
+     *
+     * nginx proxies /ws and /ws/ to this service (push:8084).
+     * The frontend lib/websocket.ts connects via:
+     *   new SockJS('/ws')  →  nginx  →  push:8084/ws
+     *
+     * setAllowedOriginPatterns("*") is intentionally permissive for this demo.
+     * In production, replace with the exact frontend origin.
+     */
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
-                .withSockJS(); // SockJS fallback for older browsers
+                .withSockJS();
+    }
+
+    /**
+     * Configures the in-memory STOMP message broker.
+     *
+     * enableSimpleBroker("/topic") → activates destinations like /topic/NIFTY-FUT
+     *
+     * Frontend subscribes to:  /topic/NIFTY-FUT
+     * MarketDataRelay sends to: /topic/NIFTY-FUT  (stripped from "market:NIFTY-FUT")
+     *
+     * setApplicationDestinationPrefixes("/app") → routes @MessageMapping methods
+     * (not used here but registered for future @MessageMapping endpoints).
+     */
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry registry) {
+        registry.enableSimpleBroker("/topic");
+        registry.setApplicationDestinationPrefixes("/app");
     }
 }

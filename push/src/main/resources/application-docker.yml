@@ -1,0 +1,11 @@
+# Loaded when SPRING_PROFILES_ACTIVE=docker
+# Overrides application.yml with Docker service names
+spring:
+  data:
+    redis:
+      host: redis # Docker service name — resolves inside trading_net
+      port: 6379
+
+logging:
+  level:
+    com.trading.push: INFO # Less noise in Docker than DEBUG

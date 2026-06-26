@@ -1,4 +1,3 @@
-// frontend/app/strategy/page.tsx
 'use client'
 import { useState } from 'react'
 import { api } from '@/lib/api-client'
@@ -20,31 +19,56 @@ const STRATEGY_HELP = {
     },
     {
       label: 'Market Impact',
-      text: 'Placing a 10,000-lot order in one shot moves the market against you — sellers raise their asks as they see a large buyer. Splitting into 20 × 500-lot orders lets the market absorb each without spiking.',
+      text: 'Placing a 10,000-lot order in one shot moves the market against you. Splitting into 20 × 500-lot orders lets the market absorb each without spiking.',
     },
     {
       label: 'The Backend',
-      text: "Your strategy request goes to the Strategy Service (port 8085), which stubs the execution. In a production build, it would call the Matching Engine via the API Gateway and route to the cheapest exchange using Dijkstra's shortest-path algorithm.",
+      text: "Your strategy request goes to the Strategy Service (port 8085). In a production build, it would call the Matching Engine via the API Gateway and route to the cheapest exchange using Dijkstra's shortest-path algorithm.",
     },
   ],
+}
+
+function RestrictedFeature() {
+  return (
+    <div className="card border border-yellow-800 p-10 text-center max-w-md mx-auto mt-16">
+      <div className="text-yellow-400 font-bold text-lg mb-2">
+        Institutional Feature
+      </div>
+      <p className="text-gray-400 text-sm mb-6">
+        TWAP and VWAP strategy execution is available to Institutional traders
+        only. These tools are designed for executing large orders while
+        minimising market impact.
+      </p>
+      <a>
+        href="/signup" className="inline-block bg-yellow-600 hover:bg-yellow-700
+        text-white px-6 py-2 rounded text-sm font-bold transition-colors"
+        Upgrade to Institutional
+      </a>
+      <div className="mt-4">
+        <a
+          href="/"
+          className="text-gray-600 text-xs hover:text-gray-400 transition-colors"
+        >
+          Return to Dashboard
+        </a>
+      </div>
+    </div>
+  )
 }
 
 function StrategyContent() {
   const { user } = useUser()
   const [instrument, setInstrument] = useState('NIFTY-FUT')
-  const [quantity, setQuantity] = useState(1000)
+  const [quantity, setQuantity] = useState(10000)
   const [duration, setDuration] = useState(3600000)
-  const [slices, setSlices] = useState(10)
+  const [slices, setSlices] = useState(20)
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState<StrategyType | null>(null)
 
-  // Institutional traders get higher default quantities
-  const defaultQty =
-    user?.role === 'institutional'
-      ? 10000
-      : user?.role === 'quant'
-        ? 2000
-        : 1000
+  // Role guard — only institutional traders may run execution strategies
+  if (user && user.role !== 'institutional') {
+    return <RestrictedFeature />
+  }
 
   const execute = async (type: StrategyType) => {
     setLoading(type)
@@ -112,6 +136,7 @@ function StrategyContent() {
             </label>
             <input
               type="number"
+              min="1"
               value={quantity}
               onChange={(e) => setQuantity(+e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500"
@@ -120,7 +145,7 @@ function StrategyContent() {
 
           <div>
             <label className="text-gray-400 text-xs mb-1 block">
-              Duration (ms) — {(duration / 60000).toFixed(0)} min
+              Duration — {(duration / 60000).toFixed(0)} min
             </label>
             <input
               type="range"
@@ -161,14 +186,14 @@ function StrategyContent() {
               disabled={!!loading}
               className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 rounded text-sm font-bold transition-colors"
             >
-              {loading === 'TWAP' ? 'Queuing...' : '▶ TWAP'}
+              {loading === 'TWAP' ? 'Queuing…' : '▶ TWAP'}
             </button>
             <button
               onClick={() => execute('VWAP')}
               disabled={!!loading}
               className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white py-2 rounded text-sm font-bold transition-colors"
             >
-              {loading === 'VWAP' ? 'Queuing...' : '▶ VWAP'}
+              {loading === 'VWAP' ? 'Queuing…' : '▶ VWAP'}
             </button>
           </div>
 

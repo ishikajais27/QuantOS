@@ -9,38 +9,43 @@ import org.springframework.stereotype.Service;
 public class PortfolioOptimizer {
 
     /**
-     * Computes upper convex hull of (risk, return) points — the efficient frontier.
-     * Uses Graham scan variant: sort by risk, upper hull.
-     * O(n log n).
+     * Returns the Pareto-optimal efficient frontier.
+     *
+     * WHY the original Graham Scan was wrong:
+     * The efficient frontier of a typical portfolio set is a concave-UP curve.
+     * The upper convex hull of a concave curve is just the two endpoints —
+     * hence the log "Efficient frontier computed: 2 points".
+     *
+     * CORRECT approach: sort by risk, then keep only portfolios where
+     * return is strictly increasing. This gives all Pareto-optimal points
+     * (no other portfolio has both lower risk AND higher return).
+     *
+     * @param portfolios list of [risk, return] pairs
+     * @return Pareto-optimal subset, sorted by ascending risk
      */
     public List<double[]> efficientFrontier(List<double[]> portfolios) {
-        if (portfolios == null || portfolios.size() < 2) return portfolios;
+        if (portfolios == null || portfolios.isEmpty()) return portfolios;
+
+        // Sort by risk (x-axis) ascending
         List<double[]> sorted = new ArrayList<>(portfolios);
         sorted.sort((a, b) -> {
             int cmp = Double.compare(a[0], b[0]);
             return cmp != 0 ? cmp : Double.compare(a[1], b[1]);
         });
 
-        List<double[]> hull = new ArrayList<>();
+        // Keep only points where return improves — Pareto filter
+        List<double[]> frontier = new ArrayList<>();
+        double maxReturn = Double.NEGATIVE_INFINITY;
         for (double[] p : sorted) {
-            while (hull.size() >= 2) {
-                double[] a = hull.get(hull.size() - 2);
-                double[] b = hull.get(hull.size() - 1);
-                if (cross(a, b, p) <= 0) hull.remove(hull.size() - 1);
-                else break;
+            if (p[1] > maxReturn) {
+                frontier.add(p);
+                maxReturn = p[1];
             }
-            hull.add(p);
         }
-        return hull;
+        return frontier;
     }
 
-    /** Cross product of vectors (o→a) and (o→b) */
-    private double cross(double[] o, double[] a, double[] b) {
-        return (a[0] - o[0]) * (b[1] - o[1])
-             - (a[1] - o[1]) * (b[0] - o[0]);
-    }
-
-    // ---- Union-Find with path compression + union by rank ----
+    // ── Union-Find for asset clustering ─────────────────────────────────────
 
     private int[] parent;
     private int[] rank;
@@ -52,7 +57,7 @@ public class PortfolioOptimizer {
     }
 
     public int find(int x) {
-        if (parent[x] != x) parent[x] = find(parent[x]); // path compression
+        if (parent[x] != x) parent[x] = find(parent[x]);
         return parent[x];
     }
 

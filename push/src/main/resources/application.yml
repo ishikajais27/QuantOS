@@ -1,12 +1,14 @@
 server:
   port: 8084
+
 spring:
   application:
-    name: push-service
+    name: push
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+
 logging:
   level:
-    com.trading.push: INFO
+    com.trading.push: DEBUG

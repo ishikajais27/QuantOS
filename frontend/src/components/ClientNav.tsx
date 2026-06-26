@@ -1,4 +1,3 @@
-// frontend/components/ClientNav.tsx
 'use client'
 
 import Link from 'next/link'
@@ -7,28 +6,47 @@ import { useUser } from '@/context/UserContext'
 import { ROLE_LABELS, UserRole } from '@/lib/mockData'
 
 const ROLE_BADGE: Record<UserRole, string> = {
-  retail: 'text-green-400 bg-green-400/10 border-green-400/30',
+  retail: 'text-green-400  bg-green-400/10  border-green-400/30',
   quant: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
   institutional: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
 }
 
-const NAV_LINKS = [
-  { href: '/orderbook', label: 'Order Book' },
-  { href: '/portfolio', label: 'Portfolio' },
-  { href: '/arbitrage', label: 'Arbitrage' },
-  { href: '/strategy', label: 'Strategy' },
-]
+/**
+ * Role-gated navigation:
+ *  Retail        → Order Book, Portfolio
+ *  Quant         → + Arbitrage
+ *  Institutional → + Arbitrage + Strategy
+ *
+ * Direct URL access to restricted pages is handled inside each page component.
+ */
+const NAV_BY_ROLE: Record<UserRole, Array<{ href: string; label: string }>> = {
+  retail: [
+    { href: '/orderbook', label: 'Order Book' },
+    { href: '/portfolio', label: 'Portfolio' },
+  ],
+  quant: [
+    { href: '/orderbook', label: 'Order Book' },
+    { href: '/portfolio', label: 'Portfolio' },
+    { href: '/arbitrage', label: 'Arbitrage' },
+  ],
+  institutional: [
+    { href: '/orderbook', label: 'Order Book' },
+    { href: '/portfolio', label: 'Portfolio' },
+    { href: '/arbitrage', label: 'Arbitrage' },
+    { href: '/strategy', label: 'Strategy' },
+  ],
+}
 
 export default function ClientNav() {
   const { user, logout } = useUser()
   const pathname = usePathname()
 
-  // Don't show nav on auth pages
   if (pathname === '/login' || pathname === '/signup') return null
+
+  const links = user ? (NAV_BY_ROLE[user.role] ?? NAV_BY_ROLE.retail) : []
 
   return (
     <nav className="border-b border-gray-800 px-6 py-3 flex items-center gap-6 text-sm sticky top-0 bg-gray-950 z-50">
-      {/* Logo */}
       <Link
         href="/"
         className="text-green-400 font-bold text-base tracking-wider font-mono"
@@ -36,7 +54,6 @@ export default function ClientNav() {
         QuantOS
       </Link>
 
-      {/* Live indicator */}
       {user && (
         <div className="flex items-center gap-1 text-xs text-green-400">
           <span className="live-dot" />
@@ -44,10 +61,9 @@ export default function ClientNav() {
         </div>
       )}
 
-      {/* Nav links */}
       {user && (
         <div className="flex gap-5 ml-2">
-          {NAV_LINKS.map(({ href, label }) => (
+          {links.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
@@ -63,7 +79,6 @@ export default function ClientNav() {
         </div>
       )}
 
-      {/* Right side: user info */}
       {user && (
         <div className="ml-auto flex items-center gap-3">
           <span

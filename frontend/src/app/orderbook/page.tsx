@@ -1,4 +1,3 @@
-// frontend/app/orderbook/page.tsx
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import OrderBookTable from '@/components/OrderBookTable'
@@ -51,19 +50,22 @@ function OrderBookContent() {
     quantity: '',
   })
   const [orderMsg, setOrderMsg] = useState('')
+  const [placing, setPlacing] = useState(false)
 
   const subscribe = useCallback((inst: string) => {
     tradingWS.subscribe(inst, (data: string) => {
       try {
         const parsed = JSON.parse(data)
-        if (parsed.bids) setBids(parsed.bids)
-        if (parsed.asks) setAsks(parsed.asks)
-        if (parsed.price) setPrice(parsed.price)
+        if (Array.isArray(parsed.bids)) setBids(parsed.bids)
+        if (Array.isArray(parsed.asks)) setAsks(parsed.asks)
+        if (typeof parsed.price === 'number') setPrice(parsed.price)
         if (parsed.bids?.[0] && parsed.asks?.[0]) {
           setSpread(+(parsed.asks[0].price - parsed.bids[0].price).toFixed(2))
         }
         setConnected(true)
-      } catch {}
+      } catch {
+        /* ignore parse errors */
+      }
     })
   }, [])
 
@@ -85,18 +87,41 @@ function OrderBookContent() {
   }
 
   const placeOrder = async () => {
+    // Front-end validation — prevents NaN → null → DB NOT-NULL violation (was 500)
+    const priceVal = parseFloat(orderForm.price)
+    const qtyVal = parseInt(orderForm.quantity, 10)
+
+    if (!orderForm.price.trim() || isNaN(priceVal) || priceVal <= 0) {
+      setOrderMsg('Enter a valid price (must be > 0).')
+      return
+    }
+    if (!orderForm.quantity.trim() || isNaN(qtyVal) || qtyVal <= 0) {
+      setOrderMsg('Enter a valid quantity (must be > 0).')
+      return
+    }
+    if (!user) {
+      setOrderMsg('You must be logged in to place an order.')
+      return
+    }
+
+    setPlacing(true)
+    setOrderMsg('')
     try {
       await api.placeOrder({
-        accountId: user?.id ?? 'demo-account',
+        accountId: user.id,
         instrumentId: instrument,
         type: orderForm.type,
-        price: parseFloat(orderForm.price),
-        quantity: parseInt(orderForm.quantity),
+        price: priceVal,
+        quantity: qtyVal,
       })
       setOrderMsg('Order placed ✓')
+      setOrderForm((f) => ({ ...f, price: '', quantity: '' }))
       setTimeout(() => setOrderMsg(''), 3000)
-    } catch {
-      setOrderMsg('Error placing order')
+    } catch (e: any) {
+      const msg = e?.message ?? 'Unknown error'
+      setOrderMsg('Error: ' + msg)
+    } finally {
+      setPlacing(false)
     }
   }
 
@@ -150,6 +175,7 @@ function OrderBookContent() {
         <div className="text-gray-400 text-xs uppercase tracking-wider mb-3">
           Place Order
         </div>
+
         <div className="flex gap-2 mb-3">
           {['BID', 'ASK'].map((t) => (
             <button
@@ -167,9 +193,13 @@ function OrderBookContent() {
             </button>
           ))}
         </div>
+
         <div className="flex gap-2 mb-3">
           <input
             placeholder="Price"
+            type="number"
+            min="0"
+            step="0.01"
             value={orderForm.price}
             onChange={(e) =>
               setOrderForm((f) => ({ ...f, price: e.target.value }))
@@ -178,6 +208,9 @@ function OrderBookContent() {
           />
           <input
             placeholder="Qty"
+            type="number"
+            min="1"
+            step="1"
             value={orderForm.quantity}
             onChange={(e) =>
               setOrderForm((f) => ({ ...f, quantity: e.target.value }))
@@ -185,13 +218,22 @@ function OrderBookContent() {
             className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500"
           />
         </div>
+
         <button
           onClick={placeOrder}
-          className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-bold transition-colors"
+          disabled={placing}
+          className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2 rounded text-sm font-bold transition-colors"
         >
-          Place {orderForm.type}
+          {placing ? 'Placing…' : `Place ${orderForm.type}`}
         </button>
-        {orderMsg && <p className="text-green-400 text-xs mt-2">{orderMsg}</p>}
+
+        {orderMsg && (
+          <p
+            className={`text-xs mt-2 ${orderMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}
+          >
+            {orderMsg}
+          </p>
+        )}
       </div>
     </div>
   )

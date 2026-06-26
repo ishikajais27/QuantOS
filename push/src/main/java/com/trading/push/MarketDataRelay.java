@@ -1,99 +1,79 @@
 package com.trading.push;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
-import org.springframework.data.redis.listener.PatternTopic;
-import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-@Service
+/**
+ * CIRCULAR REFERENCE ROOT CAUSE (what was wrong):
+ *
+ * The previous MarketDataRelay had 3 constructor parameters:
+ *   param 0 → SimpMessagingTemplate
+ *   param 1 → StringRedisTemplate
+ *   param 2 → RedisMessageListenerContainer   ← THE PROBLEM
+ *
+ * Spring tried to create MarketDataRelay, needed RedisMessageListenerContainer,
+ * started creating RedisMessageListenerContainer (in RedisConfig),
+ * which needed MarketDataRelay (still being created) → CYCLE → crash.
+ *
+ * FIX: MarketDataRelay only needs SimpMessagingTemplate.
+ * RedisConfig registers this bean INTO the container — MarketDataRelay
+ * does NOT need to know about the container at all.
+ *
+ * Dependency graph AFTER fix (no cycle):
+ *   SimpMessagingTemplate ──► MarketDataRelay (implements MessageListener)
+ *   RedisConnectionFactory ─┐
+ *   MarketDataRelay ────────┴► RedisMessageListenerContainer (created by RedisConfig)
+ */
+@Component
 public class MarketDataRelay implements MessageListener {
 
     private static final Logger log = LoggerFactory.getLogger(MarketDataRelay.class);
 
-    private final SimpMessagingTemplate messaging;
-    private final ObjectMapper          mapper;
-    private final Random                rng        = new Random();
-    private final Map<String, Double>   lastPrices = new HashMap<>();
+    // ONE dependency only — SimpMessagingTemplate is created by Spring WebSocket
+    // infrastructure, has no dependency on Redis beans → zero risk of cycle
+    private final SimpMessagingTemplate stompTemplate;
 
-    public MarketDataRelay(SimpMessagingTemplate messaging,
-                           ObjectMapper mapper,
-                           RedisMessageListenerContainer listenerContainer) {
-        this.messaging = messaging;
-        this.mapper    = mapper;
-        listenerContainer.addMessageListener(this, new PatternTopic("market:*"));
+    public MarketDataRelay(SimpMessagingTemplate stompTemplate) {
+        this.stompTemplate = stompTemplate;
     }
 
+    /**
+     * Called by RedisMessageListenerContainer on every Redis PUBLISH event
+     * matching the pattern "market:*" (registered in RedisConfig).
+     *
+     * Flow:
+     *   Redis PUBLISH market:NIFTY-FUT <json>
+     *     → container thread calls onMessage()
+     *       → extract instrument from channel name
+     *         → stompTemplate broadcasts to /topic/NIFTY-FUT
+     *           → all subscribed WebSocket clients receive the JSON
+     *
+     * @param message  getChannel() = "market:NIFTY-FUT", getBody() = JSON payload
+     * @param pattern  matched pattern bytes ("market:*") — used only for debug log
+     */
     @Override
     public void onMessage(Message message, byte[] pattern) {
+        String channel = null;
         try {
-            String channel    = new String(message.getChannel());
-            String body       = new String(message.getBody());
+            channel        = new String(message.getChannel());  // "market:NIFTY-FUT"
+            String payload = new String(message.getBody());     // full JSON order book
+
+            // Strip prefix: "market:NIFTY-FUT" → "NIFTY-FUT"
             String instrument = channel.replace("market:", "");
 
-            // Fix: use Map<String, Object> instead of Map<?, ?>
-            // This allows Java to resolve the value type at compile time
-            @SuppressWarnings("unchecked")
-            Map<String, Object> event = mapper.readValue(body, Map.class);
+            // Broadcast to all STOMP clients subscribed to /topic/NIFTY-FUT
+            String topic = "/topic/" + instrument;
+            stompTemplate.convertAndSend(topic, payload);
 
-            // getOrDefault returns Object — cast to Number first, then doubleValue()
-            Object priceObj = event.getOrDefault("price", 0.0);
-            double price    = ((Number) priceObj).doubleValue();
-
-            if (price <= 0) return;
-
-            lastPrices.put(instrument, price);
-
-            Map<String, Object> snapshot = buildOrderBook(instrument, price);
-            messaging.convertAndSend("/topic/" + instrument, snapshot);
-            log.debug("Pushed {} @ {}", instrument, price);
+            log.debug("Redis [{}] → STOMP [{}] ({} bytes)", channel, topic, payload.length());
 
         } catch (Exception e) {
-            log.error("Relay error: {}", e.getMessage());
+            log.error("Relay failed from channel [{}]: {}",
+                      channel != null ? channel : "unknown", e.getMessage(), e);
         }
-    }
-
-    private Map<String, Object> buildOrderBook(String instrument, double price) {
-        List<Map<String, Object>> bids = new ArrayList<>();
-        List<Map<String, Object>> asks = new ArrayList<>();
-
-        double tickSize = (instrument.contains("BTC") || instrument.contains("ETH"))
-                          ? 10.0
-                          : 0.5;
-
-        for (int i = 1; i <= 10; i++) {
-            double bidPrice = price - (i * tickSize) + (rng.nextDouble() - 0.5) * tickSize * 0.1;
-            double askPrice = price + (i * tickSize) + (rng.nextDouble() - 0.5) * tickSize * 0.1;
-
-            long bidVol = (long) (5000.0 / i) + rng.nextInt(1000);
-            long askVol = (long) (4800.0 / i) + rng.nextInt(1000);
-
-            bids.add(Map.of("price", round(bidPrice, 2), "volume", bidVol));
-            asks.add(Map.of("price", round(askPrice, 2), "volume", askVol));
-        }
-
-        return Map.of(
-            "instrument", instrument,
-            "price",      round(price, 2),
-            "bids",       bids,
-            "asks",       asks,
-            "timestamp",  System.currentTimeMillis()
-        );
-    }
-
-    private double round(double val, int places) {
-        double scale = Math.pow(10, places);
-        return Math.round(val * scale) / scale;
     }
 }

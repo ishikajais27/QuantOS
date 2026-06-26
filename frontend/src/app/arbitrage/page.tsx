@@ -1,9 +1,8 @@
-// frontend/app/arbitrage/page.tsx
 'use client'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api-client'
 import HelpPanel from '@/components/HelpPanel'
-import { RequireAuth } from '@/context/UserContext'
+import { RequireAuth, useUser } from '@/context/UserContext'
 
 interface Opportunity {
   cycle: string[]
@@ -28,18 +27,55 @@ const ARBITRAGE_HELP = {
     },
     {
       label: 'Why Opportunities Vanish',
-      text: "Real arbitrage lasts milliseconds. Other algorithms — including competitors' — close the mispricing the moment they detect it. The scanner alerts you; execution speed determines profit.",
+      text: 'Real arbitrage lasts milliseconds. Other algorithms close the mispricing the moment they detect it. The scanner alerts you; execution speed determines profit.',
     },
   ],
 }
 
+function RestrictedFeature({ title, desc }: { title: string; desc: string }) {
+  return (
+    <>
+      <div className="card border border-yellow-800 p-10 text-center max-w-md mx-auto mt-16">
+        <div className="text-yellow-400 font-bold text-lg mb-2">{title}</div>
+        <p className="text-gray-400 text-sm mb-6">{desc}</p>
+
+        <a>
+          {' '}
+          href="/signup" className="inline-block bg-yellow-600
+          hover:bg-yellow-700 text-white px-6 py-2 rounded text-sm font-bold
+          transition-colors" Upgrade Account
+        </a>
+        <div className="mt-4">
+          <a
+            href="/"
+            className="text-gray-600 text-xs hover:text-gray-400 transition-colors"
+          >
+            Return to Dashboard
+          </a>
+        </div>
+      </div>
+    </>
+  )
+}
+
 function ArbitrageContent() {
+  const { user } = useUser()
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [scanning, setScanning] = useState(false)
 
+  // Role guard — Retail traders don't have access to arbitrage scanning
+  if (user && user.role === 'retail') {
+    return (
+      <RestrictedFeature
+        title="Quant Feature"
+        desc="Bellman-Ford arbitrage scanning is available to Quant and Institutional traders. Upgrade your account to unlock real-time negative-cycle detection across the exchange-rate graph."
+      />
+    )
+  }
+
   useEffect(() => {
-    const fetchOpportunities = () => {
+    const fetch = () => {
       setScanning(true)
       api
         .getArbitrageOpportunities()
@@ -50,10 +86,9 @@ function ArbitrageContent() {
         .catch(() => {})
         .finally(() => setScanning(false))
     }
-
-    fetchOpportunities()
-    const interval = setInterval(fetchOpportunities, 10_000)
-    return () => clearInterval(interval)
+    fetch()
+    const id = setInterval(fetch, 10_000)
+    return () => clearInterval(id)
   }, [])
 
   return (
@@ -68,7 +103,7 @@ function ArbitrageContent() {
         </div>
         <div className="flex items-center gap-3 text-xs text-gray-500">
           {scanning && (
-            <span className="text-yellow-400 animate-pulse">● Scanning...</span>
+            <span className="text-yellow-400 animate-pulse">● Scanning…</span>
           )}
           {lastUpdated && <span>Last: {lastUpdated.toLocaleTimeString()}</span>}
           <HelpPanel
@@ -78,7 +113,6 @@ function ArbitrageContent() {
         </div>
       </div>
 
-      {/* Algorithm explainer */}
       <div className="card mb-4 border border-gray-800">
         <div className="text-gray-400 text-xs uppercase tracking-wider mb-3">
           Algorithm
