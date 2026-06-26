@@ -2,7 +2,7 @@ server:
   port: 8084
 spring:
   application:
-    name: push-server
+    name: push-service
   data:
     redis:
       host: ${REDIS_HOST:localhost}

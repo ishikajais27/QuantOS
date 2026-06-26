@@ -25,3 +25,12 @@ jwt:
 logging:
   level:
     com.trading.api: INFO
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics,info
+  metrics:
+    export:
+      prometheus:
+        enabled: true

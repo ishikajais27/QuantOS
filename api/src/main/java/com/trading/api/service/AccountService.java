@@ -1,10 +1,9 @@
 package com.trading.api.service;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
 import com.trading.api.entity.Account;
 import com.trading.api.repository.AccountRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 @Service
 public class AccountService {
@@ -17,20 +16,33 @@ public class AccountService {
         this.encoder = encoder;
     }
 
-    public Account register(String email, String password) {
+    /**
+     * Primary registration method — accepts role explicitly.
+     * Called by AuthController during signup.
+     */
+    public Account register(String email, String password, String role) {
         Account a = new Account();
-        a.setEmail(email);
+        a.setEmail(email.trim().toLowerCase());
         a.setPasswordHash(encoder.encode(password));
+        a.setRole(role != null ? role.toUpperCase() : "TRADER");
         return repo.save(a);
     }
 
+    /**
+     * Convenience overload — defaults role to TRADER.
+     * Keeps any existing callers working without changes.
+     */
+    public Account register(String email, String password) {
+        return register(email, password, "TRADER");
+    }
+
     public boolean authenticate(String email, String password) {
-        return repo.findByEmail(email)
+        return repo.findByEmail(email.trim().toLowerCase())
                    .map(a -> encoder.matches(password, a.getPasswordHash()))
                    .orElse(false);
     }
 
     public Account getByEmail(String email) {
-        return repo.findByEmail(email).orElseThrow();
+        return repo.findByEmail(email.trim().toLowerCase()).orElseThrow();
     }
 }
